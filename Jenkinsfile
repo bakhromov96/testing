@@ -1,24 +1,38 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:6-alpine'
+            args '-p 3000:3000'
+        }
+    }
+    environment { 
+        CI = 'true'
+    }
     stages {
-        /* "Build" and "Test" stages omitted */
-
-        stage('Deploy - Staging') {
+        stage('Build') {
             steps {
-                sh 'ls'
+                sh 'npm install'
             }
         }
-
-        stage('Sanity check') {
+        stage('Test') {
             steps {
-                input "Does the staging environment look ok?"
+                sh './jenkins/scripts/test.sh'
             }
         }
-
-        stage('Deploy - Production') {
+        stage('Deliver') { 
             steps {
-                echo 'Finished!'
+                sh './jenkins/scripts/deliver.sh' 
+                input message: 'Finished using the web site? (Click "Proceed" to continue)' 
+                sh './jenkins/scripts/kill.sh' 
             }
+        }
+    }
+    
+post {
+    failure {
+        mail to: 'bakhromovkhurshid@gmail.com',
+             subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+             body: "Something is wrong with ${env.BUILD_URL}"
         }
     }
 }
